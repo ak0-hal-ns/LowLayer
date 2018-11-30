@@ -26,7 +26,7 @@
     ;; jump to location if ToS(d) = 0
     ;; location is an offset relative to the arg end
     native "branch0", branch0
-    pop rax
+    dfetch rax
     test rax, rax
     jnz .skip
     add pc, [pc]
@@ -46,7 +46,7 @@
     dq xt_inbuf
     dq xt_word
     branch0 .end_of_input
-    dq xt_drop
+    dq xt_drop    ; discard len-of-word
     dq xt_inbuf
     dq xt_find
     branch0 .no_word
@@ -54,13 +54,14 @@
     dq xt_execute
     branch .start
 .no_word:
-    dq xt_drop
+    dq xt_drop    ; discard null pointer
     dq xt_inbuf
     dq xt_prints
     dq xt_lit, msg_err_find
     dq xt_prints
     branch .start
 .end_of_input:
+    dq xt_drop    ; discard len-of-word
     dq xt_decol
 
     ;; (addr --)
@@ -103,11 +104,7 @@
     test rsi, rsi
     jnz .loop
 .not_found:
-    dpop rdi
-    call print_string
-    mov rdi, msg_err_find
-    call print_string
-    dpush 0
+    dpost 0
     jmp next
 .found:
     dpost rsi
