@@ -9,6 +9,10 @@
 
 input_buf:
     resb 1024
+rstack_end:
+    resq 1023
+rstack_start:
+    resq 1
 
 
     section .rodata
@@ -24,17 +28,7 @@ last_word:
     dq _last_word
 
 prog_stub:
-.loop:
-    dq xt_inbuf
-    dq xt_word
-    dq xt_drop
-    dq xt_inbuf
-    dq xt_find
-    dq xt_branch_end
-    dq xt_wh2xt
-    dq xt_execute
-    dq xt_loop
-.end:
+    dq xt_interpreter
     dq xt_exit
 
 
