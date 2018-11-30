@@ -36,7 +36,7 @@
 
     ;; Pushs a value immediately following this XT
     native "lit", lit
-    dpush [pc]
+    dpush qword [pc]
     add pc, cellsize    ; skip the value pushed
     jmp next
 
@@ -57,8 +57,7 @@
     dq xt_drop
     dq xt_inbuf
     dq xt_prints
-    dq xt_lit
-    msg_err_find    ; this address is pushed and skipped
+    dq xt_lit, msg_err_find
     dq xt_prints
     branch .start
 .end_of_input:
