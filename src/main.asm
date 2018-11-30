@@ -1,8 +1,8 @@
     global _start
 
-    %include "util.inc"
-    %include "macro.inc"
-    %include "words.inc"
+    %include "src/util.inc"
+    %include "src/macro.inc"
+    %include "src/words.inc"
 
 
     section .bss
