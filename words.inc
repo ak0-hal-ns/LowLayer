@@ -1,11 +1,40 @@
     ;; init
     native "init", init
+    mov rstack, rstack_start
     mov pc, prog_stub
     jmp next
 
+    ;; implementation of any colon word
+    native "docol", docol
+    rpush pc
+    add xt, cellsize
+    mov pc, xt
+    jmp next
+
+    ;; return back from colon word
+    native "decol", decol
+    rpop pc
+    jmp next
+
+    ;; interpreter
+    colon "interpreter", interpreter
+.loop:
+    dq xt_inbuf
+    dq xt_word
+    dq xt_drop
+    dq xt_inbuf
+    dq xt_find
+    dq xt_branch_end
+    dq xt_wh2xt
+    dq xt_execute
+    dq xt_loop
+.end:
+    dq xt_decol
+
     ;; loop
     native "loop", loop
-    mov pc, prog_stub.loop
+    ;; mov pc, prog_stub.loop
+    mov pc, xt_interpreter.loop
     jmp next
 
     ;; jump to exit if top of data stack is 0
@@ -15,7 +44,8 @@
     jz .end
     jmp next
 .end:
-    mov pc, prog_stub.end
+    ;; mov pc, prog_stub.end
+    mov pc, xt_interpreter.end
     jmp next
 
     ;; ( -- addr_to_input_buffer)
@@ -88,9 +118,9 @@
     call print_string
     jmp next
     
-
     ;; exit
     native "exit", exit
     mov rax, 60
     xor rdi, rdi
     syscall
+
