@@ -16,36 +16,59 @@
     rpop pc
     jmp next
 
+    ;; jump to location
+    ;; location is an offset relative to the arg end
+    native "branch", branch
+    add pc, [pc]
+    add pc, cellsize
+    jmp next
+
+    ;; jump to location if ToS(d) = 0
+    ;; location is an offset relative to the arg end
+    native "branch0", branch0
+    pop rax
+    test rax, rax
+    jnz .skip
+    add pc, [pc]
+.skip:
+    add pc, cellsize
+    jmp next
+
+    ;; Pushs a value immediately following this XT
+    native "lit", lit
+    dpush [pc]
+    add pc, cellsize    ; skip the value pushed
+    jmp next
+
     ;; interpreter
     colon "interpreter", interpreter
-.loop:
+.start:
     dq xt_inbuf
     dq xt_word
+    branch0 .end_of_input
     dq xt_drop
     dq xt_inbuf
     dq xt_find
-    dq xt_branch_end
+    branch0 .no_word
     dq xt_wh2xt
     dq xt_execute
-    dq xt_loop
-.end:
+    branch .start
+.no_word:
+    dq xt_drop
+    dq xt_inbuf
+    dq xt_prints
+    dq xt_lit
+    msg_err_find    ; this address is pushed and skipped
+    dq xt_prints
+    branch .start
+.end_of_input:
     dq xt_decol
 
-    ;; loop
-    native "loop", loop
-    ;; mov pc, prog_stub.loop
-    mov pc, xt_interpreter.loop
-    jmp next
-
-    ;; jump to exit if top of data stack is 0
-    native "branch_end", branch_end
-    dfetch rax
-    test rax, rax
-    jz .end
-    jmp next
-.end:
-    ;; mov pc, prog_stub.end
-    mov pc, xt_interpreter.end
+    ;; (addr --)
+    ;; Prints a null-terminated string
+    native "prints", prints
+    pop rdi
+    call print_string
     jmp next
 
     ;; ( -- addr_to_input_buffer)
