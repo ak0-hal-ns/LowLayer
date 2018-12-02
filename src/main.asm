@@ -7,12 +7,11 @@
 
     section .bss
 
+    resq 1023
+rstack_base:
+    resq 1
 input_buf:
     resb 1024
-rstack_end:
-    resq 1023
-rstack_start:
-    resq 1
 
 
     section .rodata
@@ -26,6 +25,9 @@ msg_test:
 
 last_word:
     dq _last_word
+
+dstack_base:
+    dq 0
 
 prog_stub:
     dq xt_interpreter

@@ -1,6 +1,13 @@
     ;; init
     native "init", init
-    mov rstack, rstack_start
+    mov rstack, rstack_base
+    cmp qword [dstack_base], 0
+    je .default
+    mov rsp, [dstack_base]    ; custom dstack base
+    jmp .start
+.default:
+    mov [dstack_base], rsp
+.start:
     mov pc, prog_stub
     jmp next
 
@@ -46,15 +53,23 @@
     dq xt_inbuf
     dq xt_word
     branch0 .end_of_input
-    dq xt_drop    ; discard len-of-word
+    dq xt_drop    ; discard len of word
     dq xt_inbuf
     dq xt_find
-    branch0 .no_word
+    branch0 .number
     dq xt_wh2xt
     dq xt_execute
     branch .start
+.number:
+    dq xt_drop
+    dq xt_inbuf
+    dq xt_number
+    branch0 .no_word
+    dq xt_drop    ; discard len of int parsed
+    branch .start
 .no_word:
-    dq xt_drop    ; discard null pointer
+    dq xt_drop    ; discard len of int parsed
+    dq xt_drop    ; discard int itself parsed
     dq xt_inbuf
     dq xt_prints
     dq xt_lit, msg_err_find
@@ -63,6 +78,35 @@
 .end_of_input:
     dq xt_drop    ; discard len-of-word
     dq xt_decol
+
+    ;; Shows stack contents. Does NOT pop elements.
+    native ".S", show_stack
+    mov rcx, rsp
+.loop:
+    cmp rcx, [dstack_base]
+    jae next
+    mov rdi, [rcx]
+    push rcx
+    call print_int
+    call print_newline
+    pop rcx
+    add rcx, 8
+    jmp .loop
+
+    ;; Pops and prints top of data stack
+    native ".", dot
+    dpop rdi
+    call print_int
+    call print_newline
+    jmp next
+
+    ;; (str -- num len)
+    native "number", number
+    dpop rdi
+    call parse_int
+    dpush rax
+    dpush rdx
+    jmp next
 
     ;; (addr --)
     ;; Prints a null-terminated string
@@ -131,15 +175,14 @@
     pop xt
     jmp [xt]
 
-    ;; test for interpreter loop
-    native "hello", hello
-    mov rdi, msg_test
-    call print_string
-    jmp next
-    
     ;; exit
     native "exit", exit
     mov rax, 60
     xor rdi, rdi
     syscall
 
+    ;; test for interpreter loop
+    native "hello", hello
+    mov rdi, msg_test
+    call print_string
+    jmp next
