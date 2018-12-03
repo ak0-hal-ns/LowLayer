@@ -1,0 +1,281 @@
+$ gcc -c -o obj/mainlib.o mainlib.c
+$ gcc -c -fPIC -o obj/dynlib.o dynlib.c
+$ gcc -o bin/dynlib.so -shared obj/dynlib.o
+$ gcc -o bin/main obj/mainlib.o obj/dynlib.so
+
+$ ldd main
+	linux-vdso.so.1 (0x00007fffed2d9000)
+	dynlib.so => not found
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f924171d000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f9241d10000)
+
+$ echo $LD_LIBRARY_PATH
+$ export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:.
+
+$ ldd main
+	linux-vdso.so.1 (0x00007ffc0c5f0000)
+	dynlib.so => ./dynlib.so (0x00007f00f82f8000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f00f7f07000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007f00f86fc000)
+
+$ bin/main
+param: 42
+global: 100
+
+===
+
+$ readelf -h obj/mainlib.o
+relocatable file
+entrypoint: 0x0
+program header: 0x0 + [0:0]*0x0
+section header: 0x2a8 + [0:11]*0x40
+
+$ readelf -r obj/mainlib.o
+offset    value               name + addend
+0x0a      0000000000000000    libfun - 4       ; libfun + 0x0
+
+$ readelf -h obj/dynlib.o
+relocatable file
+entrypoint: 0x0
+program header: 0x0 + [0:0]*0x0
+section header: 0x368 + [0:12]*0x40
+
+$ readelf -r obj/dynlib.o
+offset    value               name + addend
+0x13      0000000000000000    .rodata - 4      ; .rodata + 0x0
+0x1d      0000000000000000    .printf - 4      ; printf + 0x0
+0x24      0000000000000000    .global - 4      ; global + 0x0
+0x2f      0000000000000000    .rodata + 7      ; .rodata + 0xb
+0x39      0000000000000000    .printf - 4      ; printf + 0x0
+
+$ objdump -D -Mintel obj/mainlib.o
+    section .text
+0000000000000000:    ; main
+    0: 55                         ; push rbp
+    1: 48 89 e5                   ; mov rbp, rsp
+    4: bf 2a 00 00 00             ; mov edi, 0x2a
+    9: e8                         ; call ____
+    a: 00 00 00 00                        ; [reloc] addr of libfun
+    e: b8 00 00 00 00             ; mov eax, 0x0
+   13: 5d                         ; pop rbp
+   14: c3                         ; ret
+
+    section .data
+0000000000000000:    ; global
+    0: 64 00 00 00                ; 0x64 (= 100)
+
+
+$ objdump -D -Mintel obj/dynlib.o
+    section .text
+0000000000000000:    ; libfun
+ ; Function prologue
+    0: 55                         ; push rbp
+    1: 48 89 e5                   ; mov rbp, rsp
+    4: 48 83 ec 10                ; sub rsp, 0x10
+ ; Second argument for printf (-> value)
+    8: 89 7d fc                   ; mov [rbp-0x4], edi
+    b: 8b 45 fc                   ; mov eax, [rbp-0x4]
+    e: 89 c6                      ; mov esi, eax
+ ; First argument for printf (-> "param: %d\n")
+   10: 48 8d 3d                   ; lea rdi, [rip+0x0]
+   13: 00 00 00 00                        ; [reloc] addr of "param..."
+ ; Printf call; zero XMM registers used
+   17: b8 00 00 00 00             ; mov eax, 0x0
+   1c: e8                         ; call ____
+   1d: 00 00 00 00                        ; [reloc] addr of printf
+ ; Second argment for printf (-> global)
+   21: 48 8b 05                   ; mov rax, [rip+0x0]
+   24: 00 00 00 00                        ; [reloc] addr of global
+   28: 8b 00                      ; mov eax, [rax]
+   2a: 89 c6                      ; mov esi, eax
+ ; First argument of printf (-> "global: %d\n")
+   2c: 48 8d 3d                   ; lea rdi, [rip+0x0]
+   2f: 00 00 00 00                        ; [reloc] addr of "global..."
+ ; Printf call; zero XMM registers used
+   33: b8 00 00 00 00             ; mov eax, 0x0
+   38: e8                         ; call ____
+   39: 00 00 00 00                        ; [reloc] addr of printf
+ ; Function epilogue
+   3d: 90                         ; nop
+   3e: c9                         ; leave
+   3f: c3                         ; ret
+
+    section .rodata
+0000000000000000:
+    0: 70 61 72 61 6d 3a 20 25    ; p a r a m :   %
+    8: 64 0a 00                   ; d \n \0
+    b:          67 6c 6f 62 61    ;       g l o b a
+   10: 6c 3a 20 25 64 0a 00 00    ; l :   % d \n \0     
+
+
+$ objdump -D -Mintel bin/dynlib.so
+    ...
+    section .text
+000000000000064a:    ; libfun
+ ; Function prologue
+  64a: 55                         ; push rbp
+  64b: 48 89 e5                   ; mov rbp, rsp
+  64e: 48 83 ec 10                ; sub rsp, 0x10
+ ; Second argument for printf (-> value)
+  652: 89 7d fc                   ; mov [rbp-0x4], edi
+  655: 8b 45 fc                   ; mov eax, [rbp-0x4]
+  658: 89 c6                      ; mov esi, eax
+ ; First argument for printf (-> "param: %d\n")
+  65a: 48 8d 3d                   ; lea rdi, [rip+0x34]
+  65d: 34 00 00 00                        ; 661 + 034 = 695
+ ; Printf call; zero XMM registers used
+  661: b8 00 00 00 00             ; mov eax, 0x0
+  666: e8                         ; call <printf@plt>
+  667: e5 fe ff ff                        ; 66b - 11b = 550
+ ; Second argment for printf (-> global)
+  66b: 48 8b 05                   ; mov rax, [rip+0x20096e]
+  66e: 6e 09 20 00                        ; 672 + 20096e = 200fe0
+  672: 8b 00                      ; mov eax, [rax]
+  674: 89 c6                      ; mov esi, eax
+ ; First argument of printf (-> "global: %d\n")
+  676: 48 8d 3d                   ; lea rdi, [rip+0x23]
+  679: 23 00 00 00                        ; 67d + 023 = 6a0
+ ; Printf call; zero XMM registers used
+  67d: b8 00 00 00 00             ; mov eax, 0x0
+  682: e8                         ; call <printf@plt>
+  683: c9 fe ff ff                        ; 687 - 137 = 550
+ ; Function epilogue
+  687: 90                         ; nop
+  688: c9                         ; leave
+  689: c3                         ; ret
+
+    section .rodata
+0000000000000695:
+  695: 70 61 72 61 6d 3a 20 25    ; p a r a m :   %
+  69d: 64 0a 00                   ; d \n \0
+  6a0:          67 6c 6f 62 61    ;       g l o b a
+  6a5: 6c 3a 20 25 64 0a 00 00    ; l :   % d \n \0     
+
+    section .plt
+0000000000000540:
+  540: ff 35 c2 0a 20 00          ; push [rip+0x200ac2]
+                                  ;   (546 + 200ac2 = 201008)
+  546: ff 25 c4 0a 20 00          ; jmp  [rip+0x200ac4]
+                                  ;   (54c + 200ac4 = 201010)
+  54c: 0f 1f 40 00                ; nop
+0000000000000550:    ; printf@plt
+  550: ff 25 c2 0a 20 00          ; jmp  [rip+0x200ac2]
+                                  ;   (556 + 200ac2 = 201018)
+  556: 68 00 00 00 00             ; push 0x0
+  55b: e9 e0 ff ff ff             ; jmp 540  (560 - 020)
+    section .plt.got
+0000000000000560:
+  560: ff 25 92 0a 20 00          ; jmp  [rip+0x200a92]
+                                  ;   (566 + 200a92 = 200ff8)
+  566: 66 99                      ; nop
+
+    section .got
+0000000000200fd8:
+   d8: 00 00 00 00 00 00 00 00
+   e0: ...
+   f8: 00 00 00 00 00 00 00 00
+
+    section .got.plt
+0000000000201000:    ; _GLOBAL_OFFSET_TABLE_
+   00: 18 0e 20 00 00 00 00 00
+   08: 00 00 00 00 00 00 00 00
+   10: 00 00 00 00 00 00 00 00
+   18: 56 05 00 00 00 00 00 00
+
+
+$ objdump -D -Mintel bin/main
+
+    section .text
+000000000000073a:    ; main
+  73a: 55                         ; push rbp
+  73b: 48 89 e5                   ; mov rbp, rsp
+  73e: bf 2a 00 00 00             ; mov edi, 0x2a
+  743: e8 c8 fe ff ff             ; call 610 (= 748 - 138)
+  748: b8 00 00 00 00             ; mov eax, 0x0
+  74d: 5d                         ; pop rbp
+  74e: c3                         ; ret
+  74f: 90                         ; nop
+
+    section .plt
+0000000000000600:
+  600: ff 35 ba 09 20 00          ; push [rip+0x2009ba]
+                                  ;   [606 + 2009ba] = [200fc0] = [GOT+0x08]
+  606: ff 25 bc 09 20 00          ; jmp [rip+0x2009bc]
+                                  ;   [60c + 2009bc] = [200fc8] = [GOT+0x10]
+  60c: 0f 1f 40 00                ; nop
+0000000000000610:    ; libfun@plt
+  610: ff 25 ba 09 20 00          ; jmp [rip+0x2009ba]
+                                  ;   [616 + 2009ba] = [200fd0] = [GOT+0x18]
+  616: 68 00 00 00 00             ; push 0x0
+  61b: e9 e0 ff ff ff             ; jmp 600 (= 620 - 020)
+
+    section .dynamic
+0000000000200db8:
+   b8: 01 00 00 00 00 00 00 00    ; 0x1
+
+    section .got
+0000000000200fb8:    ; _GLOBAL_OFFSET_TABLE_
+   b8: b8 0d 20 00 00 00 00 00    ; 0x200db8
+   c0: 00 00 00 00 00 00 00 00
+   c8: 00 00 00 00 00 00 00 00
+   d0: 16 06 00 00 00 00 00 00    ; 0x616
+
+   section .data
+0000000000201010:    ; global
+   10; 64 00 00 00                ; 0x64 = (100)
+
+===
+===
+
+$ readelf -l dynlib.so
+DYN: shared object file
+Entry point 0x570
+
+   type          offset  vaddr   paddr   fsz  msz  flag  align
+   ------------  ------  ------  ------  ---  ---  ----  ------
+00 LOAD              0        0       0  74c  74c   R E  200000
+01 LOAD            e08   200e08  200e08  220  228   RW   200000
+02 DYNAMIC         e18   200e18  200e18  1c0  1c0   RW        8
+03 NOTE            1c8      1c8     1c8   24   24   R         4
+04 GNU_EH_FRAME    6ac      6ac     6ac   24   24   R         4
+05 GNU_STACK         0        0       0    0    0   RW       10
+06 GNU_RELRO       e08   200e08  200e08  1f8  1f8   R         1
+
+00 .note.gnu.build-id .gnu.hash .dynsym .dynstr .gnu.version
+   .gnu.version_r .rela.dyn .rela.plt .init .plt .plt.got .text
+   .fini .rodata .eh_frame_hdr .eh_frame
+01 .init_array .fini_array .dynamic .got .got.plt .data .bss
+02 .dynamic
+03 .note.gnu.build-id
+04 .eh_frame_hdr
+05
+06 .init_array .fini_array .dynamic .got
+
+
+$ readelf -l main
+DYN: shared object file
+Entry point 0x630
+
+   type          offset  vaddr   paddr   fsz  msz  flag  align
+   ------------  ------  ------  ------  ---  ---  ----  ------
+00 PHDR             40       40      40  1f8  1f8   R         8
+01 INTERP          238      238     238   1c   1c   R         1
+02 LOAD              0        0       0  918  918   R E  200000
+03 LOAD            da8   200da8  200da8  26c  270   RW   200000
+04 DYNAMIC         db8   200db8  200db8  200  200   RW        8
+05 NOTE            254      254     254   44   44   R         4
+06 GNU_EH_FRAME    7d4      7d4     7d4   3c   3c   R         4
+07 GNU_STACK         0        0       0    0    0   RW       10
+08 GNU_RELRO       da8   200da8  200da8  258  258   R         1
+
+00
+01 .interp
+02 .interp .note.ABI-tag .note.gnu.build-id .gnu.hash .dynsym .dynstr
+   .gnu.version .gnu.version_r .rela.dyn .rela.plt .init .plt .plt.got
+   text .fini .rodata .eh_frame_hdr .eh_frame
+03 .init_array .fini_array .dynamic .got .data .bss
+04 .dynamic
+05 .note.ABI-tag .note.gnu.build-id
+06 .eh_frame_hdr
+07
+08 .init_array .fini_array .dynamic .got
