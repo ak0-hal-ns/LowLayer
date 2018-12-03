@@ -1,4 +1,5 @@
 $ nasm -felf64 -o obj/main.o main.asm
+
 $ readelf -h obj/main.o
 relocatable file
 no entrypoint
@@ -20,6 +21,7 @@ $ objdump -D -Mintel obj/main.o
 
 
 $ nasm -felf64 -o obj/libso.o libso.asm
+
 $ readelf -h obj/libso.o
 relocatable file
 no entrypoint
@@ -50,6 +52,7 @@ $ objdump -D -Mintel obj/libso.o
 
 
 $ ld -o main_staticlink main.o libso.o
+
 $ objdump -D -Mintel main_staticlink
     section .text
 0000000000400080:    ; _start
@@ -77,6 +80,8 @@ $ objdump -D -Mintel main_staticlink
    d4: 0a 00 00 00 00 00 00 00    ;
 
 
+$ ld -shared -o libso.so libso.o
+
 $ readelf -h bin/libso.so
 dynamic shared object file
 entrypoint: 0x230
@@ -103,6 +108,8 @@ $ objdump -D -Mintel bin/libso.so
   264: 0a 00 00 00 00 00 00 00    ;
     ...
 
+
+$ ld -o main main.o -d libso.so --dynamic-linker=/lib64/ld-linux-x86-64.so.2
 
 $ readelf -h bin/main
 executable file
