@@ -1,16 +1,16 @@
-$ nasm -felf64 -o symbols.o symbols.asm
+$ nasm -felf64 -o obj/symbols.o symbols.asm
 
-$ readelf -h symbols.o
+$ readelf -h obj/symbols.o
 relocatable file
 
-$ readelf -r symbols.o
+$ readelf -r obj/symbols.o
 offset    value                 name  + add
 0x02      0x0000000000000000    .data + 0x0
 0x0c      0x0000000000000000    .bss  + 0x0
 0x16      0x0000000000000000    .bss  + 0x2000000
 0x20      0x0000000000000000    .data + 0x8
 
-$ objdump -D -Mintel symbols.o
+$ objdump -D -Mintel obj/symbols.o
 .data
         0: d0 05 00 00 00 00 00 00    # datavar1
         8: 2a 00 00 00 00 00 00 00    # datavar2
@@ -32,16 +32,16 @@ $ objdump -D -Mintel symbols.o
        2b: 00 00 00 00 00 00 00 00    # textlabel
 
 
-$ nasm -felf64 -o executable.o executable.asm
+$ nasm -felf64 -o obj/executable.o executable.asm
 
-$ readelf -h executable.o
+$ readelf -h obj/executable.o
 relocatable file
 
-$ readelf -r executable.o
+$ readelf -r obj/executable.o
 offset    value               name  + add
 0x02      0000000000000000    .data + 0x0
 
-$ objdump -D -Mintel executable.o
+$ objdump -D -Mintel obj/executable.o
 .data
         0: e7 03 00 00 00 00 00 00    # somewhere
         8: 9a 02 00 00 00 00 00 00    # private
@@ -50,11 +50,11 @@ $ objdump -D -Mintel executable.o
         2: 00 00 00 00 00 00 00 00
         a: c3
 
-$ ld -o main symbols.o executable.o
-$ readelf -h main
+$ ld -o bin/main obj/symbols.o obj/executable.o
+$ readelf -h bin/main
 executable file
 
-$ objdump -D -Mintel main
+$ objdump -D -Mintel bin/main
 .text
    4000b0: 48 b8
    4000b2: fc 00 60 00 00 00 00 00
