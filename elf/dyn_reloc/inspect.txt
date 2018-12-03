@@ -1,0 +1,185 @@
+$ nasm -felf64 -o obj/main.o main.asm
+$ readelf -h obj/main.o
+relocatable file
+no entrypoint
+program header: 0x0 + [0:0]*0x0
+section header: 0x40 + [0:5]*0x40
+
+$ readelf -r obj/main.o
+offset  value             name + add
+0x6     0000000000000000  func - 4
+
+$ objdump -D -Mintel obj/main.o
+    section .text
+0000000000000000:    ; _start
+    0: bf 0a 00 00 00             ; mov edi, 0xa
+    5: e8 00 00 00 00             ; call ____
+    a: 48 89 c7                   ; mov rdi, rax
+    d: b8 3c 00 00 00             ; mov eax, 0x3c
+   12: 0f 05                      ; syscall
+
+
+$ nasm -felf64 -o obj/libso.o libso.asm
+$ readelf -h obj/libso.o
+relocatable file
+no entrypoint
+program header: 0x0 + [0:0]*0x0
+section header: 0x40 + [0:6]*0x40
+
+$ readelf -r obj/libso.o
+offset  value             name + add
+0xc     0000000000000000  .rodata + 0
+
+$ objdump -D -Mintel obj/libso.o
+    section .rodata
+0000000000000000:    ; message
+    0: 53 68 61 72 65 64 20 6f    ; S h a r e d   o
+    8: 62 6a 65 63 74 20 77 72    ; b j e c t   w r
+   10: 6f 74 65 20 74 68 69 73    ; o t e   t h i s
+   18: 0a 00 00 00 00 00 00 00    ;
+
+    section .text
+0000000000000000:    ; func
+    0: b8 01 00 00 00             ; mov eax, 0x1
+    5: bf 01 00 00 00             ; mov edi, 0x1
+    a: 48 be                      ; mov rsi, 0x0
+    c: 00 00 00 00 00 00 00 00
+   14: ba 19 00 00 00             ; mov edx, 0x19
+   19: 0f 05                      ; syscall
+   1b: c3                         ; ret
+
+
+$ ld -o main_staticlink main.o libso.o
+$ objdump -D -Mintel main_staticlink
+    section .text
+0000000000400080:    ; _start
+   80: bf 0a 00 00 00             ; mov edi, 0xa
+   85: e8 16 00 00 00             ; call 4000a0 <func>
+   8a: 48 89 c7                   ; mov rdi, rax
+   8d: b8 3c 00 00 00             ; mov eax, 0x3c
+   92: 0f 05                      ; syscall
+   94: 66 2e 0f 1f                ; nop
+   98: 84 00 00 00 00 00 66 90    ; nop
+00000000004000a0:    ; func
+   a0: b8 01 00 00 00             ; mov eax, 0x1
+   a5: bf 01 00 00 00             ; mov edi, 0x1
+   aa: 48 be                      ; mov rsi, 0x4000bc
+   ac: bc 00 40 00 00 00 00 00                    ; [reloc] .rodata + 0
+   b4: ba 19 00 00 00             ; mov edx, 0x19
+   b9: 0f 05                      ; syscall
+   bb: c3                         ; ret
+
+    section .rodata
+00000000004000bc:    ; message
+   bc: 53 68 61 72 65 64 20 6f    ; S h a r e d   o
+   c4: 62 6a 65 63 74 20 77 72    ; b j e c t   w r
+   cc: 6f 74 65 20 74 68 69 73    ; o t e   t h i s
+   d4: 0a 00 00 00 00 00 00 00    ;
+
+
+$ readelf -h bin/libso.so
+dynamic shared object file
+entrypoint: 0x230
+program header: 0x40 + [0:3]*0x38
+section header: 0x1250 + [0:12]*0x40
+
+$ objdump -D -Mintel bin/libso.so
+    ...
+    section .text
+0000000000000230:    ; func
+  230: b8 01 00 00 00             ; mov eax, 0x1
+  235: bf 01 00 00 00             ; mov edi, 0x1
+  23a: 48 be                      ; mov rsi, 0x24c
+  23c: 4c 02 00 00 00 00 00 00
+  244: ba 19 00 00 00             ; mov edx, 0x19
+  249: 0f 05                      ; syscall
+  24b: c3                         ; ret
+    
+    section .rodata
+000000000000024c:    ; message
+  24c: 53 68 61 72 65 64 20 6f    ; S h a r e d   o
+  254: 62 6a 65 63 74 20 77 72    ; b j e c t   w r
+  25c: 6f 74 65 20 74 68 69 73    ; o t e   t h i s
+  264: 0a 00 00 00 00 00 00 00    ;
+    ...
+
+
+$ readelf -h bin/main
+executable file
+entrypoint: 0x4002e0
+program header: 0x40 + [0:5]*0x38
+section header: 0x12c8 + [0:14]*0x40
+
+$ objdump -D -Mintel bin/main
+    ...
+    section .plt
+00000000004002c0:
+  2c0: ff 35 42 0d 20 00          ; push [rip+0x200d42]
+                                  ; [0x601008] => 0x0
+  2c6: ff 25 44 0d 20 00          ; jmp [rip+0x200d44]
+                                  ; [0x601010] => 0x0
+  2cc: 0f 1f 40 00                ; nop
+00000000004002d0:    ; func@plt
+  2d0: ff 25 42 0d 20 00          ; jmp [rip+0x200d42]  (jmp /5 addr)
+                                  ; [0x601018] => 0x4002d6
+  2d6: 68 00 00 00 00             ; push 0x0
+  2db: e9 e0 ff ff ff             ; jmp 4002c0 (0e0- 020)
+
+    section .text
+00000000004002e0:    ; _start
+  2e0: bf 0a 00 00 00             ; mov edi, 0xa
+  2e5: e8 e6 ff ff ff             ; call 4002d0 <func@plt>  (2ea - 01a)
+  2ea: 48 89 c7                   ; mov rdi, rax
+  2ed: b8 3c 00 00 00             ; mov eax, 0x3c
+  2f2: 0f 05                      ; syscall
+
+    section .got.plt
+0000000000601000    ; _GLOBAL_OFFSET_TABLE_
+  000: e0 0e 60 00 00 00 00 00    ; 0x600ee0
+  008: 00 00 00 00 00 00 00 00
+  010: 00 00 00 00 00 00 00 00
+  018: d6 02 40 00 00 00 00 00    ; 0x4002d6
+    ...
+
+
+$ readelf -l bin/libso.so
+DYN: shared object file
+Entry point 0x230
+There are 4 program headers, starting at offset 64
+
+program header:
+   type       offset  vaddr     paddr     fsz    msz    flag  alignment
+00 LOAD       0x000   0x000000  0x000000  0x268  0x268  R E   0x200000
+01 LOAD       0xef0   0x200ef0  0x200ef0  0x110  0x110  RW    0x200000
+02 DYNAMIC    0xef0   0x200ef0  0x200ef0  0x110  0x110  RW    0x000008
+03 GNU_RELRO  0xef0   0x200ef0  0x200ef0  0x110  0x110  R     0x000001
+
+mapping:
+00    .hash.gnu.hash .dynsym .dynstr .rela.dyn .text .rodata
+01    .dynamic
+02    .dynamic
+03    .dynamic
+
+
+$ readelf -l bin/main
+EXEC: executable file
+Entry point 0x4002e0
+There are 6 program headers, starting at offset 64
+
+program header:
+   type       offset  vaddr     paddr     fsz    msz    flag  alignment
+00 PHDR       0x040   0x400040  0x400040  0x150  0x150  R     0x000008
+01 INTERP     0x190   0x400190  0x400190  0x01c  0x01c  R     0x000001
+    [Requesting program interpreter: /lib64/ld-linux-x86-64.so.2]
+02 LOAD       0x000   0x400000  0x400000  0x2f8  0x2f8  R E   0x200000
+03 LOAD       0xee0   0x600ee0  0x600ee0  0x140  0x140  RW    0x200000
+04 DYNAMIC    0xee0   0x600ee0  0x600ee0  0x120  0x120  RW    0x000008
+05 GNU_RELRO  0xee0   0x600ee0  0x600ee0  0x120  0x120  R     0x000001
+
+mapping:
+00
+01    .interp
+02    .interp .hash .gnu.hash .dynsym .dynstr .rela.plt .plt .text
+03    .dynamic .got.plt
+04    .dynamic
+05    .dynamic
