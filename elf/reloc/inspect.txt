@@ -1,0 +1,91 @@
+$ nasm -felf64 -o symbols.o symbols.asm
+
+$ readelf -h symbols.o
+relocatable file
+
+$ readelf -r symbols.o
+offset    value                 name  + add
+0x02      0x0000000000000000    .data + 0x0
+0x0c      0x0000000000000000    .bss  + 0x0
+0x16      0x0000000000000000    .bss  + 0x2000000
+0x20      0x0000000000000000    .data + 0x8
+
+$ objdump -D -Mintel symbols.o
+.data
+        0: d0 05 00 00 00 00 00 00    # datavar1
+        8: 2a 00 00 00 00 00 00 00    # datavar2
+.bss
+        0: 00 00 00 00 00 00 00 00    # bssvar1
+        8: ...
+  2000000: 00 00 00 00 00 00 00 00    # bssvar2
+.text
+        0: 48 b8
+        2: 00 00 00 00 00 00 00 00
+        a: 48 b8
+        c: 00 00 00 00 00 00 00 00
+       14: 48 b8
+       16: 00 00 00 00 00 00 00 00
+       1e: 48 b8
+       20: 00 00 00 00 00 00 00 00
+       28: eb fe                      # _start
+       2a: c3
+       2b: 00 00 00 00 00 00 00 00    # textlabel
+
+
+$ nasm -felf64 -o executable.o executable.asm
+
+$ readelf -h executable.o
+relocatable file
+
+$ readelf -r executable.o
+offset    value               name  + add
+0x02      0000000000000000    .data + 0x0
+
+$ objdump -D -Mintel executable.o
+.data
+        0: e7 03 00 00 00 00 00 00    # somewhere
+        8: 9a 02 00 00 00 00 00 00    # private
+.text
+        0: 48 b8                      # func
+        2: 00 00 00 00 00 00 00 00
+        a: c3
+
+$ ld -o main symbols.o executable.o
+$ readelf -h main
+executable file
+
+$ objdump -D -Mintel main
+.text
+   4000b0: 48 b8
+   4000b2: fc 00 60 00 00 00 00 00
+   4000ba: 48 b8
+   4000bc: 1c 01 60 00 00 00 00 00
+   4000c4: 48 b8
+   4000c6: 1c 01 60 02 00 00 00 00
+   4000ce: 48 b8
+   4000d0: 04 01 60 00 00 00 00 00
+   4000d8: eb fe                      # _start
+   4000da: c3
+   4000db: 00 00 00 00 00 00 00 00
+   4000e3: 00 00 00 00 00             # nop
+   4000e8: 00 00 00 00 00 00 00 00    # nop
+   4000f0: 48 b8                      # func
+   4000f2: 0c 01 60 00 00 00 00 00
+   4000fa: c3
+.data
+   6000fc: d0 05 00 00 00 00 00 00    # datavar1
+   600104: 2a 00 00 00 00 00 00 00    # datavar2
+   60010c: e7 03 00 00 00 00 00 00    # somewhere
+   600114: 9a 02 00 00 00 00 00 00    # private
+.bss
+   60011c: 00 00 00 00 00 00 00 00    # bssvar1
+   600124: ...
+  260011c: 00 00 00 00 00 00 00 00    # bssvar2
+
+;; reloc of symbols.o
+   4000b0 + 0x02 <=  6000fc + 0x0
+   4000b0 + 0x0c <=  60011c + 0x0
+   4000b0 + 0x16 <=  60011c + 0x2000000
+   4000b0 + 0x20 <=  6000fc + 0x8
+;; reloc of executable.o
+   4000f0 + 0x02 <=  60010c + 0x0
