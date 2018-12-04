@@ -1,0 +1,127 @@
+$ readelf -h bin/main
+Type: EXEC
+Entry point: 0x400340
+Program header: 0x40 + [0:5]*0x38
+Section header: 0x1378 + [0:15]*0x40 
+
+$ readelf -h bin/lib.so
+Type: DYN
+Entry point: 0x2b0
+Program header: 0x40 + [0:3]*0x38
+Section header: 0x1368 + [0:16]*0x40
+
+$ readelf -l bin/main
+    type       offset  vaddr   paddr   fsz  msz  flg  align
+    ---------  ------  ------  ------  ---  ---  ---  ------
+00  PHDR          40   400040  400040  150  150  R         8
+01  INTERP       190   400190  400190   1c   1c  R         1
+02  LOAD           0   400000  400000  380  380  R E  200000
+03  LOAD         ee0   600ee0  600ee0  140  140  RW   200000
+04  DYNAMIC      ee0   600ee0  600ee0  120  120  RW        8
+05  GNU_RELRO    ee0   600ee0  600ee0  120  120  R         1
+
+00
+01  .interp
+02  .interp .hash .gnu.hash .dynsym .dynstr .rela.plt .plt .text .rodata
+03  .dynamic .got.plt
+04  .dynamic
+05  .dynamic
+
+$ readelf -l bin/lib.so
+    type       offset  vaddr   paddr   fsz  msz  flg  align
+    ---------  ------  ------  ------  ---  ---  ---  ------
+00  LOAD           0        0       0  2f8  2f8  R E  200000
+01  LOAD         ec8   200ec8  200ec8  158  158  RW   200000
+02  DYNAMIC      ec8   200ec8  200ec8  130  130  RW        8
+03  GNU_RELRO    ec8   200ec8  200ec8  138  138  R         1
+
+00  .hash .gnu.hash .dynsym .dynstr .rela.dyn .rela.plt .plt .text .rodata
+01  .dynamic .got .got.plt
+02  .dynamic
+03  .dynamic .got
+
+
+$ objdump -D -Mintel bin/main
+
+; .plt
+400320: ff 35 e2 0c 20 00          ; push [rip+0x200ce2]  # 601008
+   32b: ff 25 e4 0c 20 00          ; jmp  [rip+0x200ce4]  # 601010
+   32c: 0f 1f 40 00                ; nop
+; fun1@plt
+400330: ff 25 e2 0c 20 00          ; jmp  [rip+0x200ce2]  # 601018
+   336: 68 00 00 00 00             ; push 0x0
+   33b: e9 e0 ff ff ff             ; jmp  [rip-0x20]  # 400320
+   340:
+; .text
+; _start
+400340: e8 eb ff ff ff             ; call [rip-0x15]  # 400330
+   345: b8 3c 00 00 00             ; mov eax, 0x3c
+   34a: bf 00 00 00 00             ; mov edi, 0x0
+   34f: 0f 05                      ; syscall
+; mainfun
+400351: b8 01 00 00 00             ; mov eax, 0x1
+   356: bf 01 00 00 00             ; mov edi, 0x1
+   35b: 48 be
+        76 03 40 00 00 00 00 00    ; mov rsi, 0x400376
+   365: ba 08 00 00 00             ; mov edx, 0x8
+   36a: 0f 05                      ; syscall
+   36c: c3                         ; ret
+; .rodata
+; commonmsg
+400370: 66 75 6e 32 0a 00          ; f u n 2 \n\0
+   376: 6d 61 69 6e 66 75 6e 0a    ; m a i n f u n\n
+   37e: 00                         ; \0
+; .dynamic
+600ee0: 01 00 00 00 00 00 00 00
+   ee8: ...
+; .got.plt
+; _GLOBAL_OFFSET_TABLE_
+601000: e0 0e 60 00 00 00 00 00    ; 0x600ee0
+   008: 00 00 00 00 00 00 00 00
+   010: 00 00 00 00 00 00 00 00
+   018: 36 03 40 00 00 00 00 00    ; 0x400336
+
+$ objdump -D -Mintel bin/lib.so
+
+; .plt
+   290: ff 35 72 0d 20 00          ; push [rip+0x200d72]  # 201008
+   296: ff 25 74 0d 20 00          ; jmp  [rip+0x200d74]  # 201010
+   29c: 0f 1f 40 00                ; nop
+; mainfun@plt
+   2a0: ff 25 72 0d 20 00          ; jmp  [rip+0x200d72]  # 201018
+   2a6: 68 00 00 00 00             ; push 0x0
+   2ab: e9 e0 ff ff ff             ; jmp  [rip-0x20]  # 290
+   2b0:
+; .text
+; fun1
+   2b0: b8 01 00 00 00             ; mov eax, 0x1
+   2b5: bf 01 00 00 00             ; mov edi, 0x1
+   2ba: 48 8d 35 2b 00 00 00       ; lea rsi, [rip+0x2b]  # 2ec
+   2c1: ba 05 00 00 00             ; mov edx, 0x5
+   2c6: 0f 05                      ; syscall
+   2c8: e8 06 00 00 00             ; call [rip+0x6]  # 2d3
+   2cd: e8 ce ff ff ff             ; call [rip-0x32]  # 2a0
+   2d2: c3
+; fun2
+   2d3: b8 01 00 00 00             ; mov eax, 0x1
+   2d8: bf 01 00 00 00             ; mov edi, 0x1
+   2dd: 48 8b 35 14 0d 20 00       ; mov rsi, [rip+0x200d14]  # 200ff8
+; commonmsg
+   2e4: ba 05 00 00 00             ; mov edx, 0x5
+   2e9: 0f 05                      ; syscall
+   2eb: c3                         ; ret
+; .rodata
+; msg
+   2ec: 66 75 6e 31 0a 00 00 00    ; f u n 1 \n\0
+
+; .dynamic
+200ec8: 04 00 00 00 00 00 00 00
+   ed0: ...
+; .got
+200ff8: 00 00 00 00 00 00 00 00
+; got.plt
+; _GLOBAL_OFFSET_TABLE_
+201000: c8 0e 20 00 00 00 00 00    ; 0x200ec8
+   008: 00 00 00 00 00 00 00 00
+   010: 00 00 00 00 00 00 00 00
+   018: a6 02 00 00 00 00 00 00    ; 0x2a6

@@ -1,0 +1,100 @@
+main.asm
+```assembly
+    extern _GLOBAL_OFFSET_TABLE_
+
+    global _start
+
+    extern sofun
+
+    section .text
+_start:
+    call sofun wrt ..plt        ; Linker creates entry in PLT
+    ;; exit
+    mov rdi, 0
+    mov rax, 60
+    syscall
+```
+
+lib.asm
+```assembly
+    extern _GLOBAL_OFFSET_TABLE_
+
+    global sofun:function       ; dynamically accessed by other files
+
+    section .rodata
+msg:
+    db "SO function called", 10
+.end:
+    db 0
+
+    section .text
+sofun:
+    mov rax, 1
+    mov rdi, 1
+    lea rsi, [rel msg]          ; rip relative
+    mov rdx, msg.end - msg
+    syscall
+    ret
+```
+
+Makefile
+```
+bin/main: obj/main.o bin/lib.so
+	ld -o bin/main obj/main.o bin/lib.so --dynamic-linker=/lib64/ld-linux-x86-64.so.2
+
+bin/lib.so: obj/lib.o
+	mkdir -p bin
+	ld -o bin/lib.so -shared obj/lib.o
+
+obj/lib.o: lib.asm
+	mkdir -p obj
+	nasm -felf64 -o obj/lib.o lib.asm
+
+obj/main.o: main.asm
+	mkdir -p obj
+	nasm -felf64 -o obj/main.o main.asm
+```
+
+$ objdump -D -Mintel bin/main
+```
+[.plt]
+4002d0: ff 35 32 0d 20 00          ; push [rip+0x200d32] (601008)
+4002d6: ff 25 34 0d 20 00          ; jmp  [rip+0x200d34] (601010)
+4002dc: 0f 1f 40 00                ; nop
+  ; sofun@plt
+4002e0: ff 25 32 0d 20 00          ; jmp  [rip+0x200d32] (601018)
+4002e6: 68 00 00 00 00             ; push 0x0
+4002eb: e9 e0 ff ff ff             ; jmp -20 (4002d0)
+
+[.text]
+  ; _start:
+4002f0: e8 eb ff ff ff             ; call -15 (4002e0)
+4002f5: bf 00 00 00 00             ; mov edi, 0x0
+4002fa: b8 3c 00 00 00             ; mov eax, 0x3c
+4002ff: 0f 05                      ; syscall
+
+[.got.plt]
+  ; _GLOBAL_OFFSET_TABLE_:
+601000: e0 0e 60 00 00 00 00 00    ; 0x600ee0 (-> .dynamic)
+601008: 00 00 00 00 00 00 00 00
+601010: 00 00 00 00 00 00 00 00
+601018: e6 02 40 00 00 00 00 00    ; 0x4002e6
+601020: ...
+```
+
+$ objdump -D -Mintel bin/lib.so
+```
+[.text]
+  ; sofun:
+   220: b8 01 00 00 00             ; mov eax, 0x1
+   225: bf 01 00 00 00             ; mov edi, 0x1
+   22a: 48 8d 35 0b 00 00 00       ; lea rsi, [rip+0xb] (23c)
+   231: ba 13 00 00 00             ; mov edx, 0x13
+   236: 0f 05                      ; syscall
+   238: c3                         ; ret
+
+[.rodata]
+   23c: 53 4f 20 66 75 6e 63 74    ; S O   f u n c t
+   244: 69 6f 6e 20 63 61 6c 6c    ; i o n   c a l l
+   24c: 65 64 0a 00                ; e d \n \0
+```
