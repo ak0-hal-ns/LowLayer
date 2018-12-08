@@ -1,0 +1,63 @@
+$ gcc -o gcc_alias.o -O3 -shared -fPIC gcc_alias.c
+
+$ objdump -D -Mintel gcc_alias.o
+
+tester:
+ 710: 48 83 ec 08                 ; sub rsp, 0x8
+
+ 714: 48 8b 05 c5 08 20 00        ; mov rax, [rip+0x2008c5]  # 200fe0
+ 71b: 48 8d 35 51 00 00 00        ; lea rsi, [rip+0x51]  # 773
+ 722: bf 01 00 00 00              ; mov edi, 0x1
+ 727: 8b 10                       ; mov edx, [rax]
+;; printf()
+ 729: 31 c0                       ; xor eax, eax
+ 72b: e8 d0 fe ff ff              ; call [rip-0x130]  # 600
+
+ 730: 8b 15 02 09 20 00           ; mov edx, [rip+0x200902]  # 201038
+ 736: 48 8d 35 36 00 00 00        ; lea rsi, [rip+0x36]  # 773
+ 73d: bf 01 00 00 00              ; mov edi, 0x1
+;; printf()
+ 742: 31 c0                       ; xor eax, eax
+ 744: e8 b7 fe ff ff              ; call [rip-0x149]  # 600
+
+;; fun@plt
+ 749: e8 a2 fe ff ff              ; call [rip-0x15e]  # 5f0
+
+;; puts@plt
+ 74e: 48 8d 3d 18 00 00 00        ; lea rdi, [rip+0x18]  # 76d
+ 755: e8 86 fe ff ff              ; call [rip-0x17a]  # 5e0
+
+ 75a: 31 c0                       ; xor eax, eax
+ 75c: 48 83 c4 08                 ; add rsp, 0x8
+ 760: c3                          ; ret
+
+.plt:
+ 5d0: ff 35 32 0a 20 00           ; push [rip+0x200a32]  # 201008
+ 5d6: ff 25 34 0a 20 00           ; jmp [rip+0x200a34]   # 201010
+ 5dc: 0f 1f 40 00                 ; nop
+puts@plt:
+ 5e0: ff 25 32 0a 20 00           ; jmp [rip+0x200a32]  # 201018
+ 5e6: 68 00 00 00 00              ; push 0x0
+ 5eb: e9 e0 ff ff ff              ; jmp [rip-0x20]  # 5d0
+fun@plt:
+ 5f0: ff 25 32 0a 20 00           ; jmp [rip+0x200a32]  # 201020
+ 5f6: 68 01 00 00 00              ; push 0x1
+ 5fb: e9 d0 ff ff ff              ; jmp [rip-0x30]  # 5d0
+__printf_chk@plt:
+ 600: ff 25 22 0a 20 00           ; jmp [rip+0x200a22]  # 201028
+ 606: 68 02 00 00 00              ; push 0x2
+ 60b: e9 c0 ff ff ff              ; jmp [rip-0x40]  # 5d0
+
+
+mov rax, [0x200fe0]  ; an entry in GOT
+mov edx, [rax]
+lea rsi, [0x773]
+mov edi, 0x1
+xor eax, eax
+call [0x600]
+
+mov edx, [0x201038]  ; 'global' in section .data
+lea rsi, [0x773]
+mov edi, 0x1
+xor eax, eax
+call [0x600]
