@@ -1,0 +1,71 @@
+$ nasm -felf64 -o lib.o -O0 lib.asm
+$ gcc -o main.o -O0 -c main.c
+$ gcc -o main main.o lib.o
+
+$ objdump -D -Mintel main
+
+[.plt]
+ 520: ff 35 9a 0a 20 00    ; push [rip+0x200a9a]  # 200fc0
+ 526: ff 25 9c 0a 20 00    ; jmp  [rip+0x200a9c]  # 200fc8
+ 52c: 0f 1f 40 00          ; nop
+ 530: ff 25 9a 0a 20 00    ; jmp  [rip+0x200a9a]  # 200fd0
+ 536: 68 00 00 00 00       ; push 0x0
+ 53b: e9 e0 ff ff ff       ; jmp  [rip-0x20]  # 520
+
+[.text]
+f:
+ 65a: 55             ; push rbp
+ 65b: 48 89 e5       ; mov rbp, rsp
+ 65e: 48 83 ec 10    ; sub rsp, 0x10
+ 662: 89 7d fc       ; mov [rbp-0x4], edi
+ 665: 83 7d fc 00       ; cmp [rbp-0x4], 0x0
+ 669: 74 0f             ; je [rip+0xf]  # 67a
+ 66b: 8b 45 fc          ; mov eax, [rbp-0x4]
+ 66e: 83 e8 01          ; sub eax, 0x1
+ 671: 89 c7             ; mov edi, eax
+ 673: e8 e2 ff ff ff    ; call [rip-0x1e]  # 65a
+ 678: eb 0a             ; jmp [rip+0xa]  # 684
+ 67a: b8 00 00 00 00    ; mov eax, 0x0
+ 67f: e8 2c 00 00 00    ; call [rip+0x2c]  # 6b0
+ 684: 90                ; nop
+ 685: c9             ; leave
+ 686: c3             ; ret
+main:
+ 687: 55
+ 688: 48 89 e5
+ 68b: 48 83 ec 10
+ 68f: 89 7d fc
+ 692: 48 89 75 f0
+ 696: bf 0a 00 00 00
+ 69b: e8 ba ff ff ff
+ 6a0: b8 00 00 00 00
+ 6a5: c9
+ 6a6: c3
+ 6a7: 66 0f 1f 84 00 00 00    ; nop
+ 6ae: 00 00                   ; nop
+unwind:
+ 6b0: 53                      ; push rbx
+ 6b1: 48 89 eb                ; mov rbx, rbp
+.loop:
+ 6b4: 48 85 db                ; test rbx, rbx
+ 6b7: 74 1a                   ; je [rip+0x1a]  # 6d3
+ 6b9: 48 bf 84
+      07 00 00 00 00 00 00    ; mov rdi, 0x764  # format in .rodata
+ 6c3: 48 89 de                ; mov rsi, rbx
+ 6c6: e8 65 fe ff ff          ; call [rip-0x19b]  # 530
+ 6cb: 48 8b 1b                ; mov rbx, [rbx]
+ 6ce: e9 e1 ff ff ff          ; jmp [rip-0x1f]  # 6b4
+.end:
+ 6d3: 5b                      ; pop rbx
+ 6d4: c3                      ; ret
+
+[.rodata]
+format:
+ 764: 25 78 0a 00    ; "%d\n\0"
+
+[.got]
+_GLOBAL_OFFSET_TABLE_:
+ 200fb8: b8 0d 20 00 00 00 00 00    ; 0x200db8
+ 200fc0: 00 00 00 00 00 00 00 00
+ 200fc8: 00 00 00 00 00 00 00 00
+ 200fd0: 36 05 00 00 00 00 00 00    ; 0x536
