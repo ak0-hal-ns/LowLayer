@@ -1,0 +1,325 @@
+! {small, medium, large} * {with-PIC, without-PIC}
+
+$ gcc -o cm_example -O0 -g cm_example.c
+$ objdump -D -Mintel -S cm_example
+
+global_f:
+ 5fa: 55              ; push rbp
+ 5fb: 48 89 e5        ; mov rbp, rsp
+ 5fe: b8 2a 00 00 00    ; mov eax, 0x2a    # return 42;
+ 603: 5d              ; pop rbp
+ 604: c3              ; ret
+local_f:
+ 605: 55              ; push rbp
+ 606: 48 89 e5        ; mov rbp, rsp
+ 609: b8 2a 00 00 00    ; mov eax, 0x2a    # return 42;
+ 60e: 5d              ; pop rbp
+ 60f: c3              ; ret
+main:
+ 610: 55                    ; push rbp
+ 611: 48 89 e5              ; mov rbp, rsp
+ 614: c6 05 05 0a 20 00 2a    ; mov [rip+0x200a05], 0x2a  # 201020
+ 61b: c6 05 7e 0a 20 00 2a    ; mov [rip+0x200a7e], 0x2a  # 2010a0
+ 622: c6 05 f7 a0 b8 00 2a    ; mov [rip+0xb8a0f7], 0x2a  # b8a720
+ 629: c6 05 70 a1 b8 00 2a    ; mov [rip+0xb8a170], 0x2a  # b8a7a0
+ 630: e8 c5 ff ff ff          ; call [rip-0x3b]  # 5fa
+ 635: e8 cb ff ff ff          ; call [rip-0x35]  # 605
+ 63a: b8 00 00 00 00          ; mov eax, 0x0    # return 0;
+ 63f: 5d                    ; pop rbp
+ 640: c3                    ; ret
+ 641: ...                   ; nop
+
+glob_small:
+ 201020: 01 00 00 00 00 00 00 00
+ 201028: ...
+glob_big:
+ 2010a0: 01 00 00 00 00 00 00 00
+ 2010a8: ...
+loc_small:
+ b8a720: 01 00 00 00 00 00 00 00
+ b8a728: ...
+loc_big:
+ b8a7a0: 01 00 00 00 00 00 00 00
+ b8a7a8: ...
+
+
+$ gcc -o cm_example -O0 -g -mcmodel=large cm_example.c
+$ objdump -D -Mintel -S cm_example
+
+global_f:
+ 5fa: 55                       ; push rbp
+ 5fb: 48 89 e5                 ; mov rbp, rsp
+ 5fe: 48 8d 05 f9 ff ff ff     ; lea rax, [rip-0x7]  # 5fe
+ 605: 49 bb
+      c2 09 20 00 00 00 00 00  ; mov r11, 0x2009c2
+ 60f: 4c 01 d8                 ; add rax, r11  # 200fc0 <_GLOBAL_OFFSET_TABLE_>
+ 612: b8 2a 00 00 00             ; mov eax, 0x2a    # return 42;
+ 617: 5d                       ; pop rbp
+ 618: c3                       ; ret
+local_f:
+ 619: 55                       ; push rbp
+ 61a: 48 89 e5                 ; mov rbp, rsp
+ 61d: 48 8d 05 f9 ff ff ff     ; lea rax, [rip-0x7]  # 61d
+ 624: 49 bb
+      a3 09 20 00 00 00 00 00  ; mov r11, 0x2009a3
+ 62e: 4c 01 d8                 ; add rax, r11  # 200fc0 <_GLOBAL_OFFSET_TABLE_>
+ 631: b8 2a 00 00 00             ; mov eax, 0x2a    # return 42;
+ 636: 5d                       ; pop rbp
+ 637: c3                       ; ret
+main:
+ 638: 55                       ; push rbp
+ 639: 48 89 e5                 ; mov rbp, rsp
+ 63c: 53                       ; push rbx
+ 63d: 48 8d 1d f9 ff ff ff     ; lea rbx, [rip-0x7]  # 63d
+ 644: 49 bb
+      83 09 20 00 00 00 00 00  ; mov r11, 0x200983
+ 64e: 4c 01 db                 ; add rbx, r11  # 200fc0 <_GLOBAL_OFFSET_TABLE_>
+ 651: 48 b8
+      60 00 00 00 00 00 00 00    ; mov rax, 0x60
+ 65b: c6 04 03 2a                ; mov [rbx+rax*1], 0x2a  # 201020
+ 65f: 48 b8
+      e0 00 00 00 00 00 00 00    ; mov rax, 0xe0
+ 669: c6 04 03 2a                ; mov [rbx+rax*1], 0x2a  # 2010a0
+ 66d: 48 b8
+      60 97 98 00 00 00 00 00    ; mov rax, 0x989760
+ 677: c6 04 03 2a                ; mov [rbx+rax*1], 0x2a  # b8a720
+ 67b: 48 b8
+      e0 97 98 00 00 00 00 00    ; mov rax, 0x9897e0
+ 685: c6 04 03 2a                ; mov [rbx+rax*1], 0x2a  # b8a7a0
+ 689: 48 b8
+      3a f6 df ff ff ff ff ff    ; mov rax, 0xffffffffffdff63a  # -0x2009c6
+ 693: 48 8d 04 03                ; lea rax, [rbx+rax*1]  # 5fa
+ 697: ff d0                      ; call rax
+ 699: 48 b8
+      59 f6 df ff ff ff ff ff    ; mov rax, 0xffffffffffdff659  # -0x2009a7
+ 6a3: 48 8d 04 03                ; lea rax, [rbx+rax*1]  # 619
+ 6a7: ff d0                      ; call rax
+ 6a9: b8 00 00 00 00             ; mov eax, 0x0
+ 6ae: 5b                       ; pop rbx
+ 6af: 5d                       ; pop rbp
+ 6b0: c3                       ; ret
+ 6b1: 66 2e 0f 1f 84 00 00
+      00 00 00 0f 1f 44 00 00  ; nop
+
+glob_small:
+ 201020: 01 00 00 00 00 00 00 00
+ 201028: ...
+glob_big:
+ 2010a0: 01 00 00 00 00 00 00 00
+ 2010a8: ...
+loc_small:
+ b8a720: 01 00 00 00 00 00 00 00
+ b8a728: ...
+loc_big:
+ b8a7a0: 01 00 00 00 00 00 00 00
+ b8a7a8: ...
+
+
+$ gcc -v -o cm_example -O0 -g -mcmodel=medium cm_example.c
+$ objdump -D -Mintel -S cm_example
+
+global_f:
+ 63a: 55                    ; push rbp
+ 63b: 48 89 e5              ; mov rbp, rsp
+ 63e: 48 8d 05 7b 09 20 00  ; lea rax, [rip+0x20097b]  # 200fc0
+ 645: b8 2a 00 00 00          ; mov eax, 0x2a
+ 64a: 5d                    ; pop rbp
+ 64b: c3                    ; ret
+local_f:
+ 64c: 55                    ; push rbp
+ 64d: 48 89 e5              ; mov rbp, rsp
+ 650: 48 8d 05 69 09 20 00  ; lea rax, [rip+0x200969]  # 200fc0
+ 657: b8 2a 00 00 00          ; mov eax, 0x2a
+ 65c: 5d                    ; pop rbp
+ 65d: c3                    ; ret
+main:
+ 65e: 55                       ; push rbp
+ 65f: 48 89 e5                 ; mov rbp, rsp
+ 662: 48 8d 05 57 09 20 00     ; lea rax, [rip+0x200957]  # 200fc0
+ 669: c6 05 b0 09 20 00 2a       ; mov [rip+0x2009b0], 0x2a  # 201020
+ 670: 48 ba
+      60 01 40 00 00 00 00 00    ; mov rdx, 0x400160
+ 67a: c6 04 10 2a                ; mov [rax+rdx*1], 0x2a  # 601120
+ 67e: c6 05 1b 0a 20 00 2a       ; mov [rip+0x200a1b], 0x2a  # 2010a0
+ 685: 48 ba
+      e0 97 d8 00 00 00 00 00    ; mov rdx, 0xd897e0
+ 68f: c6 04 10 2a                ; mov [rax+rdx*1], 0x2a  # f8a7a0
+ 693: e8 a2 ff ff ff             ; call -0x5e  # 63a
+ 698: e8 af ff ff ff             ; call -0x51  # 64c
+ 69d: b8 00 00 00 00             ; mov eax, 0x0
+ 6a2: 5d                       ; pop rbp
+ 6a3: c3                       ; ret
+
+glob_small:
+ 201020: 01 00 00 00 00 00 00 00
+ 201028: ...
+loc_small:
+ 2010a0: 01 00 00 00 00 00 00 00
+ 2010a8: ...
+
+glob_big:
+ 601120: 01 00 00 00 00 00 00 00
+ 601128: ...
+loc_big:
+ f8a7a0: 01 00 00 00 00 00 00 00
+ f8a7a8: ...
+
+
+$ gcc -o cm_example -O0 -g -mcmodel=small -fpic cm_example.c
+$ objdump -D -Mintel -S cm_example
+
+global_f:
+ 5fa: 55              ; push rbp
+ 5fb: 48 89 e5        ; mov rbp, rsp
+ 5fe: b8 2a 00 00 00    ; mov eax, 0x2a
+ 603: 5d              ; pop rbp
+ 604: c3              ; ret
+local_f:
+ 605: 55              ; push rbp
+ 606: 48 89 e5        ; mov rbp, rsp
+ 609: b8 2a 00 00 00    ; mov eax, 0x2a
+ 60e: 5d              ; pop rbp
+ 60f: c3              ; ret
+main:
+ 610: 55                    ; push rbp
+ 611: 48 89 e5              ; mov rbp, rsp
+ 614: 48 8d 05 05 0a 20 00    ; lea rax, [rip+0x200a05]  # 201020
+ 61b: c6 00 2a                ; mov [rax], 0x2a
+ 61e: 48 8d 05 7b 0a 20 00    ; lea rax, [rip+0x200a7b]  # 2010a0
+ 625: c6 00 2a                ; mov [rax], 0x2a
+ 628: c6 05 f1 a0 b8 00 2a    ; mov [rip+0xb8a0f1], 0x2a
+ 62f: c6 05 6a a1 b8 00 2a    ; mov [rip+0xb8a16a], 0x2a
+ 636: e8 bf ff ff ff          ; call -0x41  # 5fa
+ 63b: e8 c5 ff ff ff          ; call -0x3b  # 605
+ 640: b8 00 00 00 00          ; mov eax, 0x0    # return 0;
+ 645: 6d                    ; pop rbp
+ 646: c3                    ; ret
+
+glob_small:
+ 201020: 01 00 ...
+glob_big:
+ 2010a0: 01 00 ...
+loc_small:
+ b8a720: 01 00 ...
+loc_big:
+ b8a7a0: 01 00 ...
+
+
+$ gcc -o cm_example -O0 -g -mcmodel=large -fpic cm_example.c
+$ objdump -D -Mintel -S cm_example
+
+global_f:
+ 62a: 55                       ; push rbp
+ 62b: 48 89 e5                 ; mov rbp, rsp
+ 62e: 48 8d 05 f9 ff ff ff       ; lea rax, [rip-0x7]  # 62e
+ 635: 49 bb
+      82 09 20 00 00 00 00 00    ; mov r11, 0x200982
+ 63f: 4c 01 d8                   ; add rax, r11    # 200fb0
+ 642: b8 2a 00 00 00             ; mov eax, 0x2a
+ 647: 5d                       ; pop rbp
+ 648: c3                       ; ret
+local_f:
+ 649: 55                       ; push rbp
+ 64a: 48 89 e5                 ; mov rbp, rsp
+ 64d: 48 8d 05 f9 ff ff ff       ; lea rax, [rip-0x7]  # 64d
+ 654: 49 bb
+      63 09 20 00 00 00 00 00    ; mov r11, 0x200963
+ 65e: 4c 01 d8                   ; add rax, r11    # 200fb0
+ 661: b8 2a 00 00 00             ; mov eax, 0x2a
+ 666: 5d                       ; pop rbp
+ 667: c3                       ; ret
+main:
+ 668: 55                       ; push rbp
+ 669: 48 89 e5                 ; mov rbp, rsp
+ 66c: 41 57                    ; push r15
+ 66e: 53                       ; push rbx
+ 66f: 48 8d 1d f9 ff ff ff       ; lea rbx, [rip-0x7]  # 66f
+ 676: 49 bb
+      41 09 20 00 00 00 00 00    ; mov r11, 0x200941
+ 680: 4c 01 db                   ; add rbx, r11    # 200fb0
+ 683: 48 b8
+      20 00 00 00 00 00 00 00    ; mov rax, 0x20
+ 68d: 48 8b 04 03                ; mov rax, [rbx+rax*1]  # 200fd0
+ 691: c6 00 2a                   ; mov byte [rax], 0x2a
+ 694: 48 b8
+      38 00 00 00 00 00 00 00    ; mov rax, 0x38
+ 69e: 48 8b 04 03                ; mov rax, [rbx+rax*1]  # 200fe8
+ 6a2: c6 00 2a                   ; mov byte [rax], 0x2a
+ 6a5: 48 b8
+      70 97 98 00 00 00 00 00    ; mov rax, 0x989770
+ 6af: c6 04 03 2a                ; mov byte [rbx+rax*1], 0x2a  # b8a720
+ 6b3: 48 b8
+      f0 97 98 00 00 00 00 00    ; mov rax, 0x9897f0
+ 6bd: c6 04 03 2a                ; mov byte [rbx+rax*1], 0x2a  # b8a7a0
+ 6c1: 49 89 df                   ; mov r15, rbx
+ 6c4: 48 b8
+      7a f6 df ff ff ff ff ff    ; mov rax, 0xf...fdff67a  # -0x200986
+ 6ce: 48 01 d8                   ; add rax, rbx  # 62a
+ 6d1: ff d0                      ; call rax
+ 6d3: 48 b8
+      99 f6 df ff ff ff ff ff    ; mov rax, 0xf...fdff699  # -0x200967
+ 6dd: 48 8d 04 03                ; lea rax, [rbx+rax*1]  # 649
+ 6e1: ff d0                      ; call rax
+ 6e3: b8 00 00 00 00             ; mov eax, 0x0
+ 6e8: 5b                       ; pop rbx
+ 6e9: 41 5f                    ; pop r15
+ 6eb: 5d                       ; pop rbp
+ 6ec: c3                       ; ret
+
+glob_small:
+ 201020: 01 00 ...
+glob_big:
+ 2010a0: 01 00 ...
+loc_small:
+ b8a720: 01 00 ...
+loc_big:
+ b8a7a0: 0a 00 ...
+
+
+$ gcc -o cm_example -O0 -g -mcmodel=medium -fpic cm_example.c
+$ objdump -D -Mintel -S cm_example
+
+global_f:
+ 64a: 55                    ; push rbp
+ 64b: 48 89 e5              ; mov rbp, rsp
+ 64e: 48 8d 05 63 09 20 00    ; lea rax, [rip+0x200963]  # 200fb8
+ 655: b8 2a 00 00 00          ; mov eax, 0x2a
+ 65a: 5d                    ; pop rbp
+ 65b: c3                    ; ret
+local_f:
+ 65c: 55                    ; push rbp
+ 65d: 48 89 e5              ; mov rbp, rsp
+ 660: 48 8d 05 51 09 20 00    ; lea rax, [rip+0x200951]  # 200fb8
+ 667: b8 2a 00 00 00          ; mov eax, 0x2a
+ 66c: 5d                    ; pop rbp
+ 66d: c3                    ; ret
+main:
+ 66e: 55                       ; push rbp
+ 66f: 48 89 e5                 ; mov rbp, rsp
+ 672: 48 8d 15 3f 09 20 00       ; lea rdx, [rip+0x20093f]  # 200fb8
+ 679: 48 8d 05 a0 09 20 00       ; lea rax, [rip+0x2009a0]  # 201020
+ 680: c6 00 2a                   ; mov byte [rax], 0x2a
+ 683: 48 8b 05 5e 09 20 00       ; mov rax, [rip+0x20095e]  # 200fe8
+ 68a: c6 00 2a                   ; mov byte [rax], 0x2a  # 601120
+ 68d: c6 05 0c 0a 20 00 2a       ; mov byte [rip+0x200a0c], 0x2a
+ 694: 48 b8
+      e8 97 d8 00 00 00 00 00    ; mov rax, 0xd897e8
+ 69e: c6 04 02 2a                ; mov byte [rdx+rax*1], 0x2a  # f8a7a0
+ 6a2: e8 a3 ff ff ff             ; call -0x5d  # 64a
+ 6a7: e8 b0 ff ff ff             ; call -0x50  # 65c
+ 6ac: b8 00 00 00 00             ; mov eax, 0x0
+ 6b1: 5d                       ; pop rbp
+ 6b2: c3                       ; ret
+
+_GLOBAL_OFFSET_TABLE_:
+ 200fe8: 20 11 60 00 00 00 00 00    ; 0x601120
+
+glob_small:
+ 201020: 01 00 ...
+loc_small:
+ 2010a0: 01 00 ...
+
+glob_big:
+ 601120: 01 00 ...
+loc_big:
+ f8a7a0: 01 00 ...
