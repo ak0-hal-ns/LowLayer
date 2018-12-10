@@ -1,0 +1,50 @@
+$ gcc -o nrvo -O0 -fno-stack-protector nrvo.c
+$ objdump -D -Mintel -j.text nrvo
+
+f:
+    push rbp
+    mov rbp, rsp
+    mov [rbp-0x28], rdi
+    mov [rbp-0x20], 0x1    ; create struct onto stack
+    mov [rbp-0x18], 0x2
+    mov [rbp-0x10], 0x3
+    mov rcx, [rbp-0x28]
+    mov rax, [rbp-0x20]
+    mov rdx, [rbp-0x18]
+    mov [rcx], rax         ; copy
+    mov [rcx+0x8], rdx
+    mov rax, [rbp-0x10]
+    mov [rcx+0x10], rax
+    mov rax, [rbp-0x28]
+    pop rbp
+    ret
+main:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 0x30
+    mov [rbp-0x24], edi
+    mov [rbp-0x30], rsi
+    lea rax, [rbp-0x20]    ; struct p inst
+    mov rdi, rax
+    call f
+    mov eax, 0x0
+    leave
+    ret
+
+
+$ gcc -o nrvo -O0 -fno-stack-protector nrvo.c
+$ objdump -D -Mintel -j.text nrvo
+
+main:
+    sub rsp, 0x28
+    mov rdi, rsp
+    call f
+    xor eax, eax
+    add rsp, 0x28
+    ret
+f:
+    mov rax, rdi
+    mov [rdi], 0x1
+    mov [rdi+0x8], 0x2
+    mov [rdi+0x10], 0x3
+    ret
