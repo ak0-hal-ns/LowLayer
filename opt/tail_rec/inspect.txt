@@ -1,0 +1,297 @@
+===
+factorial
+===
+
+$ gcc -o factorial -O0 factorial.c
+$ objdump -D -Mintel -j.text factorial
+
+factorial:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 0x10
+    mov [rbp-0x4], edi     ; acc
+    mov [rbp-0x8], esi     ; arg
+    cmp [rbp-0x8], 0x0     ; arg == 0 ?
+    jne .recur
+    mov eax, [rbp-0x4]     ; return acc
+    jmp .end
+.recur:
+    mov eax, [rbp-0x8]     ; eax = arg
+    lea edx, [rax-0x1]     ; edx = arg - 1
+    mov eax, [rbp-0x4]     ; eax = acc
+    imul eax, [rbp-0x8]    ; acc = acc * arg
+    mov esi, edx           ; esi = arg - 1
+    mov edi, eax           ; edi = acc * arg
+    call factorial
+.end:
+    leave
+    ret
+
+$ gcc -o factorial -O1 -fno-omit-frame-pointer factorial.c
+$ objdump -D -Mintel -j.text factorial
+
+factorial:
+    mov eax, edi           ; eax = acc
+    test esi, esi          ; arg == 0 ?
+    jne .recur
+    ret                    ; return acc
+.recur:
+    push rbp
+    mov rbp, rsp
+    lea edx, [rsi-0x1]     ; edx = arg - 1
+    mov edi, esi           ; edi = arg
+    imul edi, eax          ; edi = arg * acc
+    mov esi, edx           ; esi = arg - 1
+    call factorial
+    pop rbp
+    ret
+
+$ gcc -o factorial -O1 factorial.c
+$ objdump -D -Mintel -j.text factorial
+
+factorial:
+    mov eax, edi           ; eax = acc
+    test esi, esi          ; arg == 0 ?
+    jne .recur
+    ret                    ; return acc
+.recur:
+    sub rsp, 0x8
+    lea edx, [rsi-0x1]     ; edx = arg - 1
+    mov edi, esi           ; edi = arg
+    imul edi, eax          ; edi = arg * acc
+    mov esi, edx           ; esi = arg - 1
+    call factorial
+    add rsp, 0x8
+    ret
+
+$ gcc -o factorial -O2 -fno-optimize-sibling-calls factorial.c
+$ objdump -D -Mintel -j.text factorial
+
+factorial:
+    test esi, esi          ; arg == 0 ?
+    mov eax, edi           ; eax = acc
+    jne .recur
+    ret                    ; return acc
+.recur:
+    mov edi, esi           ; edi = arg
+    lea edx, [rsi-0x1]     ; edx = arg - 1
+    sub rsp, 0x8
+    imul edi, eax          ; edi = arg * acc
+    mov esi, edx           ; esi = arg - 1
+    call factorial
+    add rsp, 0x8
+    ret
+
+$ gcc -o factorial -O2 factorial.c
+$ objdump -D -Mintel -j.text factorial
+
+factorial:
+    test esi, esi          ; arg == 0 ?
+    mov eax, edi           ; eax = acc
+    je .end
+.loop:
+    imul eax, esi          ; acc = acc * arg
+    sub esi, 0x1           ; arg = arg - 1
+    jne .loop
+.end:
+    ret
+
+---
+
+$ gcc -o factorial -O0 factorial_nontailrec.c
+$ objdump -D -Mintel -j.text factorial
+
+factorial:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 0x10
+    mov [rbp-0x4], edi     ; arg
+    cmp [rbp-0x4], 0x0     ; arg == 0 ?
+    jne .recur
+    mov eax, 0x1           ; return 1
+    jmp .end
+.recur:
+    mov eax, [rbp-0x4]     ; eax = arg
+    sub eax, 0x1           ; eax = arg - 1
+    mov edi, eax           ; edi = arg - 1
+    call factorial
+    imul eax, [rbp-0x4]    ; factorial(arg - 1) * arg
+.end:
+    leave
+    ret
+
+$ gcc -o factorial -O1 -fno-omit-frame-pointer factorial_nontailrec.c
+$ objdump -D -Mintel -j.text factorial
+
+factorial:
+    mov eax, 0x1
+    test edi, edi          ; arg == 0 ?
+    jne .recur
+    ret
+.recur:
+    push rbp
+    mov rbp, rsp
+    push rbx
+    sub rsp, 0x8
+    mov ebx, edi           ; ebx = arg
+    lea edi, [rdi-0x1]     ; edi = arg - 1
+    call factorial
+    imul eax, ebx          ; factorial(arg - 1) * arg
+    add rsp, 0x8
+    pop rbx
+    pop rbp
+    ret
+
+$ gcc -o factorial -O1 factorial_nontailrec.c
+$ objdump -D -Mintel -j.text factorial
+
+factorial:
+    mov eax, 0x1
+    test edi, edi          ; arg == 0 ?
+    jne .recur
+    ret
+.recur:
+    push rbx
+    mov ebx, edi           ; ebx = arg
+    lea edi, [rdi-0x1]     ; edi = arg - 1
+    call factorial
+    imul eax, ebx          ; factorial(arg - 1) * arg
+    pop rbx
+    ret
+
+$ gcc -o factorial -O2 -fno-optimize-sibling-calls factorial_nontailrec.c
+$ objdump -D -Mintel -j.text factorial
+
+factorial:
+    test edi, edi          ; arg == 0 ?
+    jne .recur
+    mov eax, 0x1
+    ret
+.recur:
+    push rbx
+    mov ebx, edi           ; ebx = arg
+    lea edi, [rdi-0x1]     ; edi = arg - 1
+    call factorial
+    imul eax, ebx          ; factorial(arg - 1) * arg
+    pop rbx
+    ret
+
+$ gcc -o factorial -O2 factorial_nontailrec.c
+$ objdump -D -Mintel -j.text factorial
+
+factorial:
+    test edi, edi          ; arg == 0 ?
+    mov eax, 0x1
+    je .end
+.loop:
+    imul eax, edi          ; eax = eax * arg
+    sub edi, 0x1           ; edi = edi - 1
+    jne .loop
+    ret
+.end:
+    ret
+
+
+===
+linked-list
+
+$ gcc -o list -O0 list.c
+$ objdump -D -Mintel -j.text list
+
+list_at:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 0x10
+    mov [rbp-0x8], rdi     ; lst
+    mov [rbp-0x10], rsi    ; idx
+    cmp [rbp-0x8], 0x0     ; lst == 0 ?
+    je .found
+    cmp [rbp-0x10], 0x0    ; idx == 0 ?
+    je .found
+    mov rax, [rbp-0x10]    ; rax = idx
+    lea rdx, [rax-0x1]     ; rdx = idx - 1
+    mov rax, [rbp-0x8]     ; rax = lst
+    mov rax, [rax]         ; rax = *lst (lst->next)
+    mov rsi, rdx           ; rsi = idx - 1
+    mov rdi, rax           ; rdi = lst->next
+    call list_at
+    jmp .end
+.found:
+    mov rax, [rbp-0x8]
+.end
+    leave
+    ret
+
+$ gcc -o list -O1 list.c
+$ objdump -D -Mintel -j.text list
+
+list_at:
+    mov rax, rdi           ; rax = lst
+    test rdi, rdi          ; lst == 0 ?
+    je .found
+    test rsi, rsi          ; idx == 0 ?
+    jne .recur
+.found:
+    ret
+.recur:
+    sub rsp, 0x8
+    sub rsi, 0x1           ; rsi = idx - 1
+    mov rdi, [rdi]         ; rdi = *lst (lst->next)
+    call list_at
+    add rsp, 0x8
+    ret
+
+$ gcc -o list -O2 -fno-optimize-sibling-calls list.c
+$ objdump -D -Mintel -j.text list
+
+list_at:
+    test rdi, rdi
+    mov rax, rdi
+    je .found
+    test rsi, rsi
+    je .recur
+.found:
+    ret
+.recur:
+    sub rsp, 0x8
+    mov rdi, [rdi]
+    sub rsi, 0x1
+    call list_at
+    add rsp, 0x8
+    ret
+
+$ gcc -o list -O2 list.c
+$ objdump -D -Mintel -j.text list
+
+list_at:
+    test rsi, rsi     ; idx == 0 ?
+    mov rax, rdi      ; rax = lst
+    je .end
+    test rdi, rdi     ; lst == 0 ?
+    je .end
+.loop:
+    mov rax, [rax]    ; lst = lst->next
+    test rax, rax     ; lst->next == 0 ?
+    setne cl
+    sub rsi, 0x1
+    setne dl
+    test cl, dl
+    jne .loop
+.end:
+    ret
+
+$ gcc -o list -Os list.c
+$ objdump -D -Mintel -j.text list
+
+list_at:
+    mov rax, rdi      ; rax = lst
+.loop:
+    test rax, rax     ; lst == 0 ?
+    je .end
+    test rsi, rsi     ; idx == 0 ?
+    je .end
+    dec rsi           ; rsi = idx - 1
+    mov rax, [rax]    ; rax = lst->next
+    jmp .loop
+.end:
+    ret
