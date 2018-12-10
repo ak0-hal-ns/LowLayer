@@ -1,0 +1,97 @@
+$ gcc -o ex -O0 ex.c
+$ objdump -D -Mintel -j.text ex
+
+sum:
+    push rbp
+    mov rbp, rsp
+    mov [rbp-0x4], edi    ; x
+    mov [rbp-0x8], esi    ; y
+    mov edx, [rbp-0x4]    ; edx = x
+    mov eax, [rbp-0x8]    ; eax = y
+    add eax, edx          ; eax = x + y
+    pop rbp
+    ret
+
+$ gcc -o ex -O2 ex.c
+$ objdump -D -Mintel -j.text ex
+
+sum.constprop.0:
+    lea eax, [rdi+0x2a]    ; eax = x + 42
+    ret
+
+
+$ gcc -o cp_fact -O0 cp_fact.c
+$ objdump -D -Mintel -j.text cp_fact
+
+main:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 0x10
+    mov [rbp-0x4], edi
+    mov [rbp-0x10], rsi
+    mov edi, 0x4
+    call fact
+    mov esi, eax
+    lea rdi, [rip+0x9d]    ; "%d\n"
+    mov eax, 0x0
+    call printf
+    mov eax, 0x0
+    leave
+    ret
+fact:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 0x10
+    mov [rbp-0x4], edi     ; n
+    cmp [rbp-0x4], 0x0     ; n == 0 ?
+    jne .recur
+    mov eax, 0x1
+    jmp .end
+.recur:
+    mov eax, [rbp-0x4]     ; eax = n
+    sub eax, 0x1           ; eax = n - 1
+    mov edi, eax           ; edi = n - 1
+    call fact
+    imul eax, [rbp-0x4]    ; fact(n-1) * n
+.end:
+    leave
+    ret
+
+$ gcc -o cp_fact -O2 cp_fact.c
+$ objdump -D -Mintel -j.text cp_fact
+
+main:
+    lea rsi, [rip+0x1ed]    ; "%d\n"
+    sub rsp, 0x8
+    mov edx, 0x18
+    mov edi, 0x1
+    xor eax, eax
+    call printf
+    xor eax, eax
+    add rsp, 0x8
+    ret
+fact:
+    test edi, edi    ; n == 0 ?
+    mov eax, 0x1
+    je .end
+.loop:
+    imul eax, edi    ;
+    sub edi, 0x1
+    jne .loop
+    ret
+.end:
+    ret
+
+$ gcc -o cp_fact -O3 cp_fact.c
+$ objdump -D -Mintel -j.text cp_fact
+
+main:
+    lea rsi, [rip+0x2ed]    ; "%d\n"
+    sub rsp, 0x8
+    mov edx, 0x18           ; 24
+    mov edi, 0x1
+    xor eax, eax
+    call printf
+    xor eax, eax
+    add rsp, 0x8
+    ret
