@@ -42,6 +42,12 @@ DIR *opendir(const char *path);
 
 struct dirent *readdir(DIR *dp);
 
+void rewinddir(DIR *dp);
+
+void seekdir(DIR *dp, long loc);
+
+long telldir(DIR *dp);
+
 
 // <fcntl.h>
 
@@ -68,6 +74,10 @@ struct group *getgrgid(gid_t gid);
 struct group *getgrnam(const char *name);
 
 int initgroups(const char *username, gid_t basegid);  /* <unistd.h> Mac OS X */
+
+void setgrent(void);
+
+int setgroups(int ngroups, const gid_t grouplist[]);  /* <unistd.h> Mac OS X */
 
 
 // <netdb.h>
@@ -105,6 +115,14 @@ struct servent *getservbyname(const char *name, const char *proto);
 struct servent *getservbyport(int port, const char *proto);
 
 struct servent *getservent(void);
+
+void sethostent(int stayopen);
+
+void setnetent(int stayopen);
+
+void setprotoent(int stayopen);
+
+void setservent(int stayopen);
 
 
 // <poll.h>
@@ -285,10 +303,39 @@ struct passwd *getpwent(void);
 
 struct passwd *getpwuid(uid_t uid);
 
+void setpwent(void);
+
+
+// <semaphore.h>
+
+int sem_close(sem_t *sem);
+
+int sem_destroy(sem_t *sem);
+
+int sem_getvalue(sem_t *restrict sem, int *restrict valp);
+
+int sem_init(sem_t *sem, int pshared, unsigned int value);
+
+sem_t *sem_open(const char *name, int oflag, ... /* mode_t mode, unsigned int value */);
+
+int sem_post(sem_t *sem);
+
+int sem_trywait(sem_t *sem);
+
+int sem_unlink(const char *name);
+
+int sem_wait(sem_t *sem);
+
 
 // <setjmp.h>
 
 void longjmp(jmp_buf env, int val);
+
+int setjmp(jmp_buf env);
+
+void siglongjmp(sigjmp_buf env, int val);
+
+int sigsetjmp(sigjmp_buf env, int savemask);
 
 
 // <shadow.h>
@@ -298,6 +345,8 @@ void endspent(void);
 struct spwd *getspent(void);
 
 struct spwd *getspnam(const char *name);
+
+void setspent(void);
 
 
 // <signal.h>
@@ -309,6 +358,55 @@ void psiginfo(const siginfo_t *info, const char *msg);
 void psignal(int signo, const char *msg);
 
 int raise(int signo);
+
+int sig2str(int signo, char *str);
+
+int sigaction(int signo, const struct sigaction *restrict act, struct sigaction *restrict oact);
+
+int sigaddset(sigset_t *set, int signo);
+
+int sigdelset(sigset_t *set, int signo);
+
+int sigemptyset(sigset_t *set);
+
+int sigfillset(sigset_t *set);
+
+int sigismember(const sigset_t *set, int signo);
+
+void (*signal(int signo, void (*func)(int)))(int);
+
+int sigpending(sigset_t *set);
+
+int sigprocmask(int how, const sigset_t *restrict set, sigset_t *restrict oset);
+
+int sigqueue(pid_t pid, int signo, const union sigval value);
+
+int sigsuspend(const sigset_t *sigmask);
+
+int sigwait(const sigset_t *restrict set, int *restrict signop);
+
+int str2sig(const char *str, int *signop);
+
+
+// <stdarg.h>
+
+int vdprintf(int fd, const char *restrict format, va_list arg);  // <stdio.h>
+
+int vfprintf(FILE *restrict fp, const char *restrict format, va_list arg);  // <stdio.h>
+
+int vfscanf(FILE *restrict fp, const char *restrict format, va_list arg);  // <stdio.h>
+
+int vprintf(const char *restrict format, va_list arg);  // <stdio.h>
+
+int vscanf(const char *restrict format, va_list arg);  // <stdio.h>
+
+int vsnprintf(char *restrict buf, size_t n, const char *restrict format, va_list arg);  // <stdio.h>
+
+int vsprintf(char *restrict buf, const char *restrict format, va_list arg);  // <stdio.h>
+
+int vsscanf(const char *restrict buf, const char *restrict format, va_list arg);  // <stdio.h>
+
+void vsyslog(int priority, const char *format, va_list arg);  // <syslog.h>
 
 
 // <stdio.h>
@@ -403,6 +501,46 @@ int putc_unlocked(int c, FILE *fp);
 
 int puts(const char *str);
 
+int remove(const char *path);
+
+int rename(const char *oldname, const char *newname);
+
+int renameat(int oldfd, const char *oldname, int newfd, const char *newname);
+
+void rewind(FILE *fp);
+
+void setbuf(FILE *restrict fp, char *restrict buf);
+
+int setvbuf(FILE *restrict fp, char *restrict buf, int mode, size_t size);
+
+int snprintf(char *restrict buf, size_t n, const char *restrict format, ...);
+
+int sprintf(char *restrict buf, const char *restrict format, ...);
+
+int sscanf(const char *restrict buf, const char *restrict format, ...);
+
+FILE *tmpfile(void);
+
+char *tmpnam(char *ptr);
+
+int ungetc(int c, FILE *fp);
+
+int vdprintf(int fd, const char *restrict format, va_list arg);  // <stdarg.h>
+
+int vfprintf(FILE *restrict fp, const char *restrict format, va_list arg);  // <stdarg.h>
+
+int vfscanf(FILE *restrict fp, const char *restrict format, va_list arg);  // <stdarg.h>
+
+int vprintf(const char *restrict format, va_list arg);  // <stdarg.h>
+
+int vscanf(const char *restrict format, va_list arg);  // <stdarg.h>
+
+int vsnprintf(char *restrict buf, size_t n, const char *restrict format, va_list arg);  // <stdarg.h>
+
+int vsprintf(char *restrict buf, const char *restrict format, va_list arg);  // <stdarg.h>
+
+int vsscanf(const char *restrict buf, const char *restrict format, va_list arg);  // <stdarg.h>
+
 
 // <stdlib.h>
 
@@ -436,12 +574,35 @@ int putenv(char *str);
 
 void *realloc(void *ptr, size_t newsize);
 
+int setenv(const char *name, const char *value, int rewrite);
+
+int system(const char *cmdstring);
+
+int unlockpt(int fd);
+
+int unsetenv(const char *name);
+
+
+// <string.h>
+
+int str2sig(const char *str, int *signop);
+
+char *strerror(int errnum);
+
+char *strsignal(int signo);
+
 
 // <syslog.h>
 
 void closelog(void);
 
 void openlog(const char *ident, int option, int facility);
+
+int setlogmask(int maskpri);
+
+void syslog(int priority, char *format);
+
+void vsyslog(int priority, const char *format, va_list arg);  // <stdarg.h>
 
 
 // <sys/ioctl.h>
@@ -480,6 +641,10 @@ int getpriority(int which, id_t who);
 
 int getrlimit(int resource, struct rlimit *rlptr);
 
+int setpriority(int which, id_t who, int value);
+
+int setrlimit(int resource, const struct rlimit *rlptr);
+
 
 // <sys/select.h>
 
@@ -492,6 +657,28 @@ void FD_SET(int fd, fd_set *fdset);
 void FD_ZERO(fd_set *fdset);
 
 int pselect(int maxfdp1, fd_set *restrict readfds, fd_set *restrict writefds, fd_set *restrict exceptfds, const struct timespec *restrict tsptr, const sigset_t *restrict sigmask);
+
+int select(int maxfdp1, fd_set *restrict readfds, fd_set *restrict writefds, fd_set *restrict exceptfds, struct timeval *restrict tvptr);
+
+
+// <sys/sem.h>
+
+int semctl(int semid, int semnum, int cmd, ... /* union semun arg */);
+
+int semget(key_t key, int nsems, int flag);
+
+int semop(int semid, struct sembuf semoparray[], size_t nops);
+
+
+// <sys/shm.h>
+
+void *shmat(int shmid, const void *addr, int flag);
+
+int shmctl(int shmid, int cmd, struct shmid_ds *buf);
+
+int shmdt(const void *addr);
+
+int shmget(key_t key, size_t size, int flag);
 
 
 // <sys/socket.h>
@@ -526,6 +713,28 @@ int getsockopt(int sockfd, int level, int option, void *restrict val, socklen_t 
 
 int listen(int sockfd, int backlog);
 
+ssize_t recv(int sockfd, void *buf, size_t nbytes, int flags);
+
+ssize_t recvfrom(int sockfd, void *restrict buf, size_t len, int flags, struct sockaddr *restrict addr, sockelen_t *restrict addrlen);
+
+ssize_t recvmsg(int sockefd, struct msghdr *msg, int flags);
+
+ssize_t send(int sockfd, const void *buf, size_t nbytes, int flags);
+
+ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags);
+
+ssize_t sendto(int sockfd, const void *buf, size_t nbytes, int flags, const struct sockaddr *destaddr, socklen_t destlen);
+
+int setsockopt(int sockfd, int level, int option, const void *val, socklen_t len);
+
+int shutdown(int sockfd, int how);
+
+int sockatmark(int sockfd);
+
+int socket(int domain, int type, int protocol);
+
+int socketpair(int domain, int type, int protocol);
+
 
 // <sys/stat.h>
 
@@ -551,6 +760,12 @@ int mkfifo(const char *path, mode_t mode);
 
 int mkfifoat(int fd, const char *path, mode_t mode);
 
+int stat(const char *restrict path, struct stat *restrict buf);
+
+mode_t umask(mode_t cmask);
+
+int utimensat(int fd, const char *path, const struct timespec times[2], int flag);
+
 
 // <sys/time.h>
 
@@ -562,10 +777,32 @@ int clock_settime(clockid_t clock_id, const struct timespec *tsp);
 
 int gettimeofday(struct timeval *restrict tp, void *restrict tzp);
 
+clock_t times(struct tms *buf);
+
+int utimes(const char *path, const struct timeval times[2]);
+
 
 // <sys/uio.h>
 
 ssize_t readv(int fd, const struct iovec *iov, int iovcnt);
+
+
+// <sys/utsname.h>
+
+int uname(struct utsname *name);
+
+
+// <sys/wait.h>
+
+pid_t wait(int *statloc);
+
+int waitid(idtype_t idtype, id_t id, siginfo_t *infop, int options);
+
+pid_t waitpid(pid_t pid, int *statloc, int options);
+
+pid_t wait3(int *statloc, int options, struct rusage *rusage);  // <sys/types.h> <sys/time.h> <sys/resource.h>
+
+pid_t wait4(pid_t pid, int *statloc, int options, struct rusage *rusage);  // <sys/types.h> <sys/time.h> <sys/resource.h>
 
 
 // <time.h>
@@ -580,6 +817,16 @@ time_t mktime(struct tm *tmptr);
 
 int nanosleep(const struct timespec *reqtp, struct timespec *remtp);
 
+int sem_timedwait(sem_t *restrict sem, const struct timespec *restrict tsptr);
+
+size_t strftime(char *restrict buf, size_t maxsize, const char *restrict format, const struct tm *restrict tmptr);
+
+size_t strftime_l(char *restrict buf, size_t maxsize, const char *restrict format, const struct tm *restrict tmptr, locale_t locale);
+
+char *strptime(const char *restrict buf, const char *restrict format, struct tm *restrict tmptr);
+
+time_t time(time_t *calptr);
+
 
 // <termios.h>
 
@@ -590,6 +837,20 @@ speed_t cfgetospeed(const struct termios *termptr);
 int cfsetispeed(struct termios *termptr, speed_t speed);
 
 int cfsetospeed(struct termios *termptr, speed_t speed);
+
+int tcdrain(int fd);
+
+int tcflow(int fd, int action);
+
+int tcflush(int fd, int action);
+
+int tcgetattr(int fd, struct termios *termptr);
+
+pid_t tcgetsid(int fd);
+
+int tcsendbreak(int fd, int duration);
+
+int tcsetattr(int fd, int opt, const struct termios *temptr);
 
 
 // <unistd.h>
@@ -695,6 +956,54 @@ ssize_t read(int fd, void *buf, size_t nbytes);
 ssize_t readlink(const char *restrict path, char *restrict buf, size_t bufsize);
 
 ssize_t readlinkat(int fd, const char *restrict path, char *restrict buf, size_t bufsize);
+
+int rmdir(const char *path);
+
+int scanf(const char *restrict format, ...);
+
+int setegid(gid_t gid);
+
+int seteuid(uid_t uid);
+
+int setgid(gid_t gid);
+
+int setgroups(int ngroups, const gid_t grouplist[]);  /* <grp.h> Linux */
+
+int setpgid(pid_t pid, pid_t pgid);
+
+int setregid(gid_t rgid, gid_t egid);
+
+int setreuid(uid_t ruid, gid_t euid);
+
+pid_t setsid(void);
+
+int setuid(uid_t uid);
+
+unsigned int sleep(unsigned int seconds);
+
+int symlink(const char *actualpath, const char *sympath);
+
+int symlinkat(const char *actualpath, int fd, const char *sympath);
+
+void sync(void);
+
+long sysconf(int name);
+
+pid_t tcgetpgrp(int fd);
+
+int tcsetpgrp(int fd, pid_t pgrpid);
+
+int truncate(const char *path, off_t length);
+
+char *ttyname(int fd);
+
+int unlink(const char *path);
+
+int unlinkat(int fd, const char *path, int flag);
+
+ssize_t write(int fd, const void *buf, size_t nbytes);
+
+ssize_t writev(int fd, const struct iovec *iov, int iovcnt);
 
 
 // <wchar.h>
